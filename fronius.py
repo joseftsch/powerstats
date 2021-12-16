@@ -103,8 +103,8 @@ def InfluxDBInsert(res:dict,config:configparser)->bool:
 
 def MySQLInsert(res:dict,config:configparser)->bool:
     mysqltable="power_{}{}".format(date.today().year,date.today().month)
-    sql='INSERT INTO {} (inverter_day_energy_wh, inverter_poc_w, inverter_total_energy_wh, inverter_year_energy_wh) VALUES (%s, %s, %s, %s)'.format(mysqltable)
-    val=res['inverter_day_energy_wh'],res['inverter_poc_w'],res['inverter_total_energy_wh'],res['inverter_year_energy_wh']
+    placeholder = ", ".join(["%s"] * len(res))
+    stmt = "INSERT INTO {} ({}) values ({});".format(mysqltable, ",".join(res.keys()), placeholder)
 
     #establish mysql connection
     try:
@@ -116,7 +116,7 @@ def MySQLInsert(res:dict,config:configparser)->bool:
 
     # #insert into db
     try:
-        mycursor.execute(sql, val)
+        mycursor.execute(stmt, list(res.values()))
         mydb.commit()
         mydb.close()
     except Exception as e:
