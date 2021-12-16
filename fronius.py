@@ -4,7 +4,6 @@ import configparser
 import requests
 import sys
 import mysql.connector
-from configparser import ConfigParser
 from datetime import date
 from influxdb import InfluxDBClient
 import logging
@@ -12,11 +11,11 @@ import logging
 def main():
     logging.basicConfig(format='%(asctime)s %(module)s %(levelname)s %(funcName)s %(message)s', level=logging.INFO)
     logging.info("Fronius Power gathering startup!")
-    config = ConfigParser()
+    config = configparser.ConfigParser()
     try:
         config.read("config.ini")
         if len(config) < 2:
-            raise
+            raise Exception
     except Exception as e:
         logging.error("Failed to read config file", exc_info=True)
         sys.exit()
@@ -26,15 +25,18 @@ def main():
     # get pv data
     res={}
     data=GetData(url)
+    if not data or not isinstance(data, dict):
+        logging.error("We did not receive a valid response from Inverter")
+        sys.exit()
     try:
         res['current_pv_watt'] = int(data['Body']['Data']['Site']['P_PV'])
+        res['current_consumption_from_grid_watt'] = float(data['Body']['Data']['Site']['P_Grid'])
+        res['current_consumption_house_watt'] = float(data['Body']['Data']['Site']['P_Load'])
         res['energy_pv_today_wh'] = float(data['Body']['Data']['Site']['E_Day'])
         res['energy_pv_year_wh'] = float(data['Body']['Data']['Site']['E_Year'])
         res['energy_pv_total_wh'] = float(data['Body']['Data']['Site']['E_Total'])
         res['autonomy_percent'] = int(data['Body']['Data']['Site']['rel_Autonomy'])
         res['selfconsumption_percent'] = int(data['Body']['Data']['Site']['rel_SelfConsumption'])
-        res['current_consumption_from_grid_watt'] = float(data['Body']['Data']['Site']['P_Grid'])
-        res['current_consumption_house_watt'] = float(data['Body']['Data']['Site']['P_Load'])
     except Exception as e:
         logging.error("Unable to assign values ... maybe element missing. Exception: {}".format(e), exc_info=True)
         sys.exit()
@@ -48,6 +50,12 @@ def main():
     except Exception as e:
         logging.error("Something went wrong. Exception: {}".format(e), exc_info=True)
         sys.exit()
+
+    #insert data into mysql
+    if 'stdout' in config.sections():
+        logging.info("Print to Stdout")
+        logging.info(data)
+        logging.info(res)
 
     #insert data into mysql
     if 'mysql' in config.sections():
@@ -102,7 +110,7 @@ def InfluxDBInsert(res:dict,config:configparser)->bool:
     return True
 
 def MySQLInsert(res:dict,config:configparser)->bool:
-    mysqltable="power_{}{}".format(date.today().year,date.today().month)
+    mysqltable="power{}{}".format(date.today().year,date.today().month)
     placeholder = ", ".join(["%s"] * len(res))
     stmt = "INSERT INTO {} ({}) values ({});".format(mysqltable, ",".join(res.keys()), placeholder)
 

@@ -1,0 +1,14 @@
+version: '3.1'
+services:
+  db:
+    image: mysql:latest
+    container_name: mysql
+    volumes:
+      - "./power.sql:/docker-entrypoint-initdb.d/power.sql"
+      - "./mysql_data:/var/lib/mysql"
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: install
+      MYSQL_DATABASE: power
