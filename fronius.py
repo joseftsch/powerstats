@@ -13,7 +13,7 @@ def main():
     logging.info("Fronius Power gathering startup!")
     config = configparser.ConfigParser()
     try:
-        config.read("config.ini")
+        config.read("/config.ini")
         if len(config) < 2:
             raise Exception
     except Exception as e:
@@ -29,14 +29,22 @@ def main():
         logging.error("We did not receive a valid response from Inverter")
         sys.exit()
     try:
-        res['current_pv_watt'] = int(data['Body']['Data']['Site']['P_PV'])
+        raw_current_pv_watt = data['Body']['Data']['Site']['P_PV']
+        if raw_current_pv_watt:
+            res['current_pv_watt'] = int(raw_current_pv_watt)
+        else:
+            res['current_pv_watt'] = 0
         res['current_consumption_from_grid_watt'] = float(data['Body']['Data']['Site']['P_Grid'])
         res['current_consumption_house_watt'] = float(data['Body']['Data']['Site']['P_Load'])
         res['energy_pv_today_wh'] = float(data['Body']['Data']['Site']['E_Day'])
         res['energy_pv_year_wh'] = float(data['Body']['Data']['Site']['E_Year'])
         res['energy_pv_total_wh'] = float(data['Body']['Data']['Site']['E_Total'])
         res['autonomy_percent'] = int(data['Body']['Data']['Site']['rel_Autonomy'])
-        res['selfconsumption_percent'] = int(data['Body']['Data']['Site']['rel_SelfConsumption'])
+        raw_selfconsumption_percent = data['Body']['Data']['Site']['rel_SelfConsumption']
+        if raw_selfconsumption_percent:
+            res['selfconsumption_percent'] = int(raw_selfconsumption_percent)
+        else:
+            res['selfconsumption_percent'] = 0
     except Exception as e:
         logging.error("Unable to assign values ... maybe element missing. Exception: {}".format(e), exc_info=True)
         sys.exit()
@@ -110,7 +118,7 @@ def InfluxDBInsert(res:dict,config:configparser)->bool:
     return True
 
 def MySQLInsert(res:dict,config:configparser)->bool:
-    mysqltable="power{}{}".format(date.today().year,date.today().month)
+    mysqltable="power_{}{}".format(date.today().year,date.today().month)
     placeholder = ", ".join(["%s"] * len(res))
     stmt = "INSERT INTO {} ({}) values ({});".format(mysqltable, ",".join(res.keys()), placeholder)
 
