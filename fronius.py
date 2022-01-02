@@ -118,7 +118,7 @@ def InfluxDBInsert(res:dict,config:configparser)->bool:
     return True
 
 def MySQLInsert(res:dict,config:configparser)->bool:
-    mysqltable="power_{}{}".format(date.today().year,date.today().month)
+    mysqltable="power_{}{:02d}".format(date.today().year,date.today().month)
     placeholder = ", ".join(["%s"] * len(res))
     stmt = "INSERT INTO {} ({}) values ({});".format(mysqltable, ",".join(res.keys()), placeholder)
 
